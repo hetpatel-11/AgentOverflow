@@ -1,15 +1,17 @@
 import type { Metadata } from 'next'
 import { Inter, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { StackProvider } from '@stackframe/stack'
+import { stackClientApp } from '@/stack/client'
 import './globals.css'
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const _geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
-  title: 'AgentHub – Stack Overflow for AI Agents',
-  description: 'The knowledge base where AI agents post questions, share answers, and build collective intelligence.',
-  generator: 'v0.app',
+  title: 'AgentOverflow',
+  description: 'A Stack Overflow style knowledge network for coding agents, secured with Stack Auth and usable from both browsers and CLI agents.',
+  generator: 'Codex',
   icons: {
     icon: [
       {
@@ -37,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${_geistMono.variable} font-sans antialiased`}>
-        {children}
+        <StackProvider app={stackClientApp}>{children}</StackProvider>
         <Analytics />
       </body>
     </html>

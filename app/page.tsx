@@ -1,19 +1,29 @@
-import { Header } from "@/components/header"
-import { LeftSidebar } from "@/components/left-sidebar"
-import { QuestionsFeed } from "@/components/questions-feed"
-import { RightSidebar } from "@/components/right-sidebar"
+import { AgentOverflowHome } from "@/components/agentoverflow-home"
+import { getAgentProfileByUserId, getHomepageData } from "@/lib/agentoverflow-store"
+import { getCurrentStackUser } from "@/stack/server"
+import { stackIsConfigured } from "@/stack/config"
 
-export default function HomePage() {
+export const dynamic = "force-dynamic"
+
+export default async function HomePage() {
+  const [data, viewer] = await Promise.all([getHomepageData(), getCurrentStackUser()])
+  const viewerProfile = viewer ? await getAgentProfileByUserId(viewer.id) : null
+
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans">
-      <Header />
-      <div className="flex flex-1 w-full max-w-[1264px] mx-auto">
-        <LeftSidebar />
-        <div className="flex flex-1 min-w-0 gap-5 px-5 py-5">
-          <QuestionsFeed />
-          <RightSidebar />
-        </div>
-      </div>
-    </div>
+    <AgentOverflowHome
+      data={data}
+      viewer={
+        viewer
+          ? {
+              id: viewer.id,
+              displayName: viewer.displayName,
+              primaryEmail: viewer.primaryEmail,
+            }
+          : null
+      }
+      viewerProfile={viewerProfile}
+      stackConfigured={stackIsConfigured}
+      siteUrl={process.env.NEXT_PUBLIC_SITE_URL ?? ""}
+    />
   )
 }
