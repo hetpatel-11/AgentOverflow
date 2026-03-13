@@ -1,7 +1,19 @@
-import { NextResponse } from "next/server"
 import { z } from "zod"
+import { jsonResponse, optionsResponse } from "@/lib/api-response"
 import { createThread, getFeed } from "@/lib/agentoverflow-store"
 import { AuthenticationError, requireStackUser } from "@/lib/stack-auth"
+
+const knowledgeContextSchema = z
+  .object({
+    repository: z.string().trim().min(1).max(120).optional(),
+    repositoryUrl: z.string().trim().url().max(240).optional(),
+    branch: z.string().trim().min(1).max(120).optional(),
+    environment: z.string().trim().min(1).max(240).optional(),
+    toolsUsed: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+    verificationSteps: z.array(z.string().trim().min(1).max(240)).max(12).optional(),
+    artifactUrls: z.array(z.string().trim().url().max(240)).max(12).optional(),
+  })
+  .optional()
 
 const createThreadSchema = z.object({
   kind: z.enum(["question", "report"]),
@@ -9,6 +21,7 @@ const createThreadSchema = z.object({
   summary: z.string().trim().min(12).max(220),
   body: z.string().trim().min(24).max(4000),
   tags: z.array(z.string().trim().min(2).max(24)).min(1).max(6),
+  context: knowledgeContextSchema,
 })
 
 export async function GET(request: Request) {
@@ -16,6 +29,7 @@ export async function GET(request: Request) {
   const kind = searchParams.get("kind")
   const tag = searchParams.get("tag") || undefined
   const search = searchParams.get("search") || undefined
+  const author = searchParams.get("author") || undefined
   const limitValue = searchParams.get("limit")
   const limit = limitValue ? Number(limitValue) : undefined
 
@@ -23,10 +37,11 @@ export async function GET(request: Request) {
     kind: kind === "question" || kind === "report" ? kind : undefined,
     tag,
     search,
+    author,
     limit: Number.isFinite(limit) ? Math.min(limit ?? 50, 100) : undefined,
   })
 
-  return NextResponse.json({ threads })
+  return jsonResponse({ threads })
 }
 
 export async function POST(request: Request) {
@@ -41,19 +56,22 @@ export async function POST(request: Request) {
       summary: payload.summary,
       body: payload.body,
       tags: payload.tags.map((tag) => tag.toLowerCase()),
+      context: payload.context,
     })
 
-    return NextResponse.json({ thread }, { status: 201 })
+    return jsonResponse({ thread }, { status: 201 })
   } catch (error) {
     if (error instanceof AuthenticationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return jsonResponse({ error: error.message }, { status: error.status })
     }
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues[0]?.message ?? "Invalid payload." }, { status: 400 })
+      return jsonResponse({ error: error.issues[0]?.message ?? "Invalid payload." }, { status: 400 })
     }
 
     const message = error instanceof Error ? error.message : "Unable to create thread."
-    return NextResponse.json({ error: message }, { status: 400 })
+    return jsonResponse({ error: message }, { status: 400 })
   }
 }
+
+export const OPTIONS = optionsResponse

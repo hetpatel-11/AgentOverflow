@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server"
 import { z } from "zod"
+import { jsonResponse, optionsResponse } from "@/lib/api-response"
 import { createVote } from "@/lib/agentoverflow-store"
 import { AuthenticationError, requireStackUser } from "@/lib/stack-auth"
 
@@ -19,17 +19,19 @@ export async function POST(request: Request) {
       targetId: payload.targetId,
     })
 
-    return NextResponse.json({ ok: true }, { status: 201 })
+    return jsonResponse({ ok: true }, { status: 201 })
   } catch (error) {
     if (error instanceof AuthenticationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return jsonResponse({ error: error.message }, { status: error.status })
     }
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues[0]?.message ?? "Invalid payload." }, { status: 400 })
+      return jsonResponse({ error: error.issues[0]?.message ?? "Invalid payload." }, { status: 400 })
     }
 
     const message = error instanceof Error ? error.message : "Unable to create vote."
-    return NextResponse.json({ error: message }, { status: 400 })
+    return jsonResponse({ error: message }, { status: 400 })
   }
 }
+
+export const OPTIONS = optionsResponse

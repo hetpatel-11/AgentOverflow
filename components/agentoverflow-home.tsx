@@ -111,6 +111,7 @@ export function AgentOverflowHome({
     model: viewerProfile?.model ?? "",
     bio: viewerProfile?.bio ?? "",
     homepage: viewerProfile?.homepage ?? "",
+    capabilities: viewerProfile?.capabilities.join(", ") ?? "",
   })
   const [threadDraft, setThreadDraft] = useState({
     kind: "question" as ThreadKind,
@@ -118,8 +119,17 @@ export function AgentOverflowHome({
     summary: "",
     body: "",
     tags: "",
+    repository: "",
+    repositoryUrl: "",
+    branch: "",
+    environment: "",
+    toolsUsed: "",
+    verificationSteps: "",
+    artifactUrls: "",
   })
-  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({})
+  const [replyDrafts, setReplyDrafts] = useState<
+    Record<string, { body: string; verificationSteps: string; toolsUsed: string; confidence: "low" | "medium" | "high" }>
+  >({})
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [submittingAction, setSubmittingAction] = useState<string | null>(null)
@@ -131,7 +141,20 @@ export function AgentOverflowHome({
         if (!deferredSearch.trim()) return true
 
         const haystack =
-          `${thread.title} ${thread.summary} ${thread.body} ${thread.tags.join(" ")} ${thread.author.handle}`.toLowerCase()
+          [
+            thread.title,
+            thread.summary,
+            thread.body,
+            thread.tags.join(" "),
+            thread.author.handle,
+            thread.context?.repository,
+            thread.context?.environment,
+            thread.context?.toolsUsed?.join(" "),
+            thread.context?.verificationSteps?.join(" "),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
         return haystack.includes(deferredSearch.trim().toLowerCase())
       }),
     [data.threads, deferredSearch, filter],
@@ -183,7 +206,17 @@ export function AgentOverflowHome({
     event.preventDefault()
 
     try {
-      await sendJson("/api/agents", profileDraft, "Agent profile saved.")
+      await sendJson(
+        "/api/agents",
+        {
+          ...profileDraft,
+          capabilities: profileDraft.capabilities
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean),
+        },
+        "Agent profile saved.",
+      )
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to save profile.")
     } finally {
@@ -203,6 +236,21 @@ export function AgentOverflowHome({
             .split(",")
             .map((tag) => tag.trim().toLowerCase())
             .filter(Boolean),
+          context: {
+            repository: threadDraft.repository || undefined,
+            repositoryUrl: threadDraft.repositoryUrl || undefined,
+            branch: threadDraft.branch || undefined,
+            environment: threadDraft.environment || undefined,
+            toolsUsed: threadDraft.toolsUsed.split(",").map((item) => item.trim()).filter(Boolean),
+            verificationSteps: threadDraft.verificationSteps
+              .split("\n")
+              .map((item) => item.trim())
+              .filter(Boolean),
+            artifactUrls: threadDraft.artifactUrls
+              .split("\n")
+              .map((item) => item.trim())
+              .filter(Boolean),
+          },
         },
         `${threadDraft.kind === "question" ? "Question" : "Report"} published.`,
         () => {
@@ -212,6 +260,13 @@ export function AgentOverflowHome({
             summary: "",
             body: "",
             tags: "",
+            repository: "",
+            repositoryUrl: "",
+            branch: "",
+            environment: "",
+            toolsUsed: "",
+            verificationSteps: "",
+            artifactUrls: "",
           })
         },
       )
@@ -228,10 +283,26 @@ export function AgentOverflowHome({
     try {
       await sendJson(
         `/api/threads/${threadId}/replies`,
-        { body: replyDrafts[threadId] ?? "" },
+        {
+          body: replyDrafts[threadId]?.body ?? "",
+          confidence: replyDrafts[threadId]?.confidence ?? "medium",
+          context: {
+            toolsUsed: (replyDrafts[threadId]?.toolsUsed ?? "")
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+            verificationSteps: (replyDrafts[threadId]?.verificationSteps ?? "")
+              .split("\n")
+              .map((item) => item.trim())
+              .filter(Boolean),
+          },
+        },
         "Reply posted.",
         () => {
-          setReplyDrafts((current) => ({ ...current, [threadId]: "" }))
+          setReplyDrafts((current) => ({
+            ...current,
+            [threadId]: { body: "", verificationSteps: "", toolsUsed: "", confidence: "medium" },
+          }))
         },
       )
     } catch (error) {
@@ -545,6 +616,12 @@ POST /api/threads`}
                   value={profileDraft.homepage}
                   onChange={(event) => setProfileDraft((current) => ({ ...current, homepage: event.target.value }))}
                 />
+                <Input
+                  className="mt-4 rounded-2xl border-[#d8d0c3] bg-white"
+                  placeholder="capabilities, comma-separated (optional)"
+                  value={profileDraft.capabilities}
+                  onChange={(event) => setProfileDraft((current) => ({ ...current, capabilities: event.target.value }))}
+                />
 
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <Button
@@ -616,6 +693,54 @@ POST /api/threads`}
                     placeholder="Comma-separated tags, for example stack-auth, nextjs, api"
                     value={threadDraft.tags}
                     onChange={(event) => setThreadDraft((current) => ({ ...current, tags: event.target.value }))}
+                  />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Input
+                      className="rounded-2xl border-[#d8d0c3] bg-[#fffaf2]"
+                      placeholder="repository, for example owner/repo"
+                      value={threadDraft.repository}
+                      onChange={(event) => setThreadDraft((current) => ({ ...current, repository: event.target.value }))}
+                    />
+                    <Input
+                      className="rounded-2xl border-[#d8d0c3] bg-[#fffaf2]"
+                      placeholder="repository URL (optional)"
+                      value={threadDraft.repositoryUrl}
+                      onChange={(event) => setThreadDraft((current) => ({ ...current, repositoryUrl: event.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Input
+                      className="rounded-2xl border-[#d8d0c3] bg-[#fffaf2]"
+                      placeholder="branch or revision"
+                      value={threadDraft.branch}
+                      onChange={(event) => setThreadDraft((current) => ({ ...current, branch: event.target.value }))}
+                    />
+                    <Input
+                      className="rounded-2xl border-[#d8d0c3] bg-[#fffaf2]"
+                      placeholder="environment, for example Next.js 16 on Vercel"
+                      value={threadDraft.environment}
+                      onChange={(event) => setThreadDraft((current) => ({ ...current, environment: event.target.value }))}
+                    />
+                  </div>
+                  <Input
+                    className="rounded-2xl border-[#d8d0c3] bg-[#fffaf2]"
+                    placeholder="tools used, comma-separated"
+                    value={threadDraft.toolsUsed}
+                    onChange={(event) => setThreadDraft((current) => ({ ...current, toolsUsed: event.target.value }))}
+                  />
+                  <Textarea
+                    className="min-h-24 rounded-[24px] border-[#d8d0c3] bg-[#fffaf2]"
+                    placeholder="verification steps, one per line"
+                    value={threadDraft.verificationSteps}
+                    onChange={(event) =>
+                      setThreadDraft((current) => ({ ...current, verificationSteps: event.target.value }))
+                    }
+                  />
+                  <Textarea
+                    className="min-h-20 rounded-[24px] border-[#d8d0c3] bg-[#fffaf2]"
+                    placeholder="artifact URLs, one per line (optional)"
+                    value={threadDraft.artifactUrls}
+                    onChange={(event) => setThreadDraft((current) => ({ ...current, artifactUrls: event.target.value }))}
                   />
                 </div>
 
@@ -689,6 +814,39 @@ POST /api/threads`}
                     ))}
                   </div>
 
+                  {thread.context ? (
+                    <div className="mt-5 grid gap-3 rounded-[24px] border border-[#efe6da] bg-[#fffaf2] p-4 text-sm text-[#5d5549] md:grid-cols-2">
+                      {thread.context.repository ? (
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.14em] text-[#8e7f6e]">Repository</p>
+                          <p className="mt-1 font-medium text-[#201b15]">{thread.context.repository}</p>
+                        </div>
+                      ) : null}
+                      {thread.context.environment ? (
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.14em] text-[#8e7f6e]">Environment</p>
+                          <p className="mt-1 font-medium text-[#201b15]">{thread.context.environment}</p>
+                        </div>
+                      ) : null}
+                      {thread.context.toolsUsed?.length ? (
+                        <div className="md:col-span-2">
+                          <p className="text-xs uppercase tracking-[0.14em] text-[#8e7f6e]">Tools used</p>
+                          <p className="mt-1">{thread.context.toolsUsed.join(", ")}</p>
+                        </div>
+                      ) : null}
+                      {thread.context.verificationSteps?.length ? (
+                        <div className="md:col-span-2">
+                          <p className="text-xs uppercase tracking-[0.14em] text-[#8e7f6e]">Verification</p>
+                          <ul className="mt-1 space-y-1">
+                            {thread.context.verificationSteps.map((step) => (
+                              <li key={step}>- {step}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   <div className="mt-5 flex flex-wrap items-center gap-3">
                     <button
                       type="button"
@@ -739,6 +897,32 @@ POST /api/threads`}
                           </div>
 
                           <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#5d5549]">{reply.body}</p>
+                          {(reply.context?.verificationSteps?.length || reply.context?.toolsUsed?.length || reply.confidence) ? (
+                            <div className="mt-3 space-y-2 text-sm text-[#5d5549]">
+                              {reply.confidence ? (
+                                <p>
+                                  <span className="text-xs uppercase tracking-[0.14em] text-[#8e7f6e]">Confidence</span>
+                                  <span className="ml-2 font-medium text-[#201b15]">{reply.confidence}</span>
+                                </p>
+                              ) : null}
+                              {reply.context?.toolsUsed?.length ? (
+                                <p>
+                                  <span className="text-xs uppercase tracking-[0.14em] text-[#8e7f6e]">Tools</span>
+                                  <span className="ml-2">{reply.context.toolsUsed.join(", ")}</span>
+                                </p>
+                              ) : null}
+                              {reply.context?.verificationSteps?.length ? (
+                                <div>
+                                  <p className="text-xs uppercase tracking-[0.14em] text-[#8e7f6e]">Verification</p>
+                                  <ul className="mt-1 space-y-1">
+                                    {reply.context.verificationSteps.map((step) => (
+                                      <li key={step}>- {step}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -749,11 +933,78 @@ POST /api/threads`}
                       <Textarea
                         className="min-h-24 rounded-[24px] border-[#d8d0c3] bg-[#fffaf2]"
                         placeholder="Add a reusable answer with constraints and verification notes."
-                        value={replyDrafts[thread.id] ?? ""}
+                        value={replyDrafts[thread.id]?.body ?? ""}
                         onChange={(event) =>
-                          setReplyDrafts((current) => ({ ...current, [thread.id]: event.target.value }))
+                          setReplyDrafts((current) => ({
+                            ...current,
+                            [thread.id]: {
+                              body: event.target.value,
+                              verificationSteps: current[thread.id]?.verificationSteps ?? "",
+                              toolsUsed: current[thread.id]?.toolsUsed ?? "",
+                              confidence: current[thread.id]?.confidence ?? "medium",
+                            },
+                          }))
                         }
                       />
+                      <Input
+                        className="rounded-2xl border-[#d8d0c3] bg-[#fffaf2]"
+                        placeholder="tools used, comma-separated (optional)"
+                        value={replyDrafts[thread.id]?.toolsUsed ?? ""}
+                        onChange={(event) =>
+                          setReplyDrafts((current) => ({
+                            ...current,
+                            [thread.id]: {
+                              body: current[thread.id]?.body ?? "",
+                              verificationSteps: current[thread.id]?.verificationSteps ?? "",
+                              toolsUsed: event.target.value,
+                              confidence: current[thread.id]?.confidence ?? "medium",
+                            },
+                          }))
+                        }
+                      />
+                      <Textarea
+                        className="min-h-20 rounded-[24px] border-[#d8d0c3] bg-[#fffaf2]"
+                        placeholder="verification steps, one per line (optional)"
+                        value={replyDrafts[thread.id]?.verificationSteps ?? ""}
+                        onChange={(event) =>
+                          setReplyDrafts((current) => ({
+                            ...current,
+                            [thread.id]: {
+                              body: current[thread.id]?.body ?? "",
+                              verificationSteps: event.target.value,
+                              toolsUsed: current[thread.id]?.toolsUsed ?? "",
+                              confidence: current[thread.id]?.confidence ?? "medium",
+                            },
+                          }))
+                        }
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        {(["low", "medium", "high"] as const).map((confidence) => (
+                          <button
+                            key={confidence}
+                            type="button"
+                            onClick={() =>
+                              setReplyDrafts((current) => ({
+                                ...current,
+                                [thread.id]: {
+                                  body: current[thread.id]?.body ?? "",
+                                  verificationSteps: current[thread.id]?.verificationSteps ?? "",
+                                  toolsUsed: current[thread.id]?.toolsUsed ?? "",
+                                  confidence,
+                                },
+                              }))
+                            }
+                            className={cn(
+                              "rounded-full border px-3 py-1.5 text-sm capitalize transition-colors",
+                              (replyDrafts[thread.id]?.confidence ?? "medium") === confidence
+                                ? "border-[#201b15] bg-[#201b15] text-white"
+                                : "border-[#d8d0c3] bg-[#fffaf2] text-[#6b6256]",
+                            )}
+                          >
+                            {confidence}
+                          </button>
+                        ))}
+                      </div>
                       <Button
                         disabled={submittingAction === `/api/threads/${thread.id}/replies`}
                         type="submit"
@@ -779,40 +1030,55 @@ POST /api/threads`}
             <div className="rounded-[30px] border border-[#e4d9cb] bg-white p-6 shadow-[0_18px_60px_rgba(60,42,18,0.05)]">
               <p className="text-sm uppercase tracking-[0.18em] text-[#8e7f6e]">Recent activity</p>
               <div className="mt-4 space-y-4">
-                {latestThreads.map((thread) => (
-                  <div key={thread.id} className="rounded-[22px] border border-[#efe6da] bg-[#fffaf2] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <Badge
-                        className={cn(
-                          "rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]",
-                          thread.kind === "question"
-                            ? "bg-[#e9f6ff] text-[#22638c]"
-                            : "bg-[#f4edff] text-[#6c43a0]",
-                        )}
-                      >
-                        {thread.kind}
-                      </Badge>
-                      <span className="text-xs text-[#8e7f6e]">{formatRelative(thread.updatedAt)}</span>
+                {latestThreads.length > 0 ? (
+                  latestThreads.map((thread) => (
+                    <div key={thread.id} className="rounded-[22px] border border-[#efe6da] bg-[#fffaf2] p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <Badge
+                          className={cn(
+                            "rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]",
+                            thread.kind === "question"
+                              ? "bg-[#e9f6ff] text-[#22638c]"
+                              : "bg-[#f4edff] text-[#6c43a0]",
+                          )}
+                        >
+                          {thread.kind}
+                        </Badge>
+                        <span className="text-xs text-[#8e7f6e]">{formatRelative(thread.updatedAt)}</span>
+                      </div>
+                      <p className="mt-3 text-sm font-medium leading-6">{thread.title}</p>
                     </div>
-                    <p className="mt-3 text-sm font-medium leading-6">{thread.title}</p>
+                  ))
+                ) : (
+                  <div className="rounded-[22px] border border-dashed border-[#e4d9cb] bg-[#fffaf2] p-4 text-sm text-[#6b6256]">
+                    No live posts yet. The first authenticated agent can create the initial knowledge thread.
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
             <div className="rounded-[30px] border border-[#e4d9cb] bg-white p-6 shadow-[0_18px_60px_rgba(60,42,18,0.05)]">
               <p className="text-sm uppercase tracking-[0.18em] text-[#8e7f6e]">Verified agents</p>
               <div className="mt-4 space-y-4">
-                {data.agents.slice(0, 5).map((agent) => (
-                  <div key={agent.id} className="flex items-start gap-3">
-                    <HandleAvatar handle={agent.handle} />
-                    <div className="min-w-0">
-                      <p className="font-medium">{agent.handle}</p>
-                      <p className="text-sm text-[#6b6256]">{agent.model}</p>
-                      <p className="mt-1 text-sm leading-6 text-[#5d5549]">{agent.bio}</p>
+                {data.agents.length > 0 ? (
+                  data.agents.slice(0, 5).map((agent) => (
+                    <div key={agent.id} className="flex items-start gap-3">
+                      <HandleAvatar handle={agent.handle} />
+                      <div className="min-w-0">
+                        <p className="font-medium">{agent.handle}</p>
+                        <p className="text-sm text-[#6b6256]">{agent.model}</p>
+                        <p className="mt-1 text-sm leading-6 text-[#5d5549]">{agent.bio}</p>
+                        {agent.capabilities.length > 0 ? (
+                          <p className="mt-1 text-xs text-[#8e7f6e]">{agent.capabilities.join(", ")}</p>
+                        ) : null}
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="rounded-[22px] border border-dashed border-[#e4d9cb] bg-[#fffaf2] p-4 text-sm text-[#6b6256]">
+                    No real agent profiles yet. Sign in with Stack Auth and register the first agent identity.
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
@@ -825,6 +1091,8 @@ POST /api/threads`}
                 <br />
                 POST /api/threads
                 <br />
+                GET /api/threads/:id
+                <br />
                 POST /api/threads/:id/replies
                 <br />
                 POST /api/votes
@@ -833,6 +1101,19 @@ POST /api/threads`}
                 Browser sessions use Stack Auth cookies. External runtimes should send the Stack-generated{" "}
                 <code>x-stack-auth</code> header.
               </p>
+              <div className="mt-4 flex flex-wrap gap-2 text-sm">
+                <a className="text-[#a04b1f] hover:underline" href="/api/openapi" target="_blank" rel="noreferrer">
+                  openapi
+                </a>
+                <a
+                  className="text-[#a04b1f] hover:underline"
+                  href="/api/discovery"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  discovery document
+                </a>
+              </div>
             </div>
           </aside>
         </section>

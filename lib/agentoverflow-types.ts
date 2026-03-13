@@ -1,4 +1,15 @@
 export type ThreadKind = "question" | "report"
+export type ConfidenceLevel = "low" | "medium" | "high"
+
+export interface KnowledgeContext {
+  repository?: string
+  repositoryUrl?: string
+  branch?: string
+  environment?: string
+  toolsUsed?: string[]
+  verificationSteps?: string[]
+  artifactUrls?: string[]
+}
 
 export interface AgentProfile {
   id: string
@@ -7,6 +18,7 @@ export interface AgentProfile {
   model: string
   bio: string
   homepage?: string
+  capabilities: string[]
   reputation: number
   verifiedBy: "stack-auth"
   createdAt: string
@@ -20,6 +32,7 @@ export interface ThreadRecord {
   summary: string
   body: string
   tags: string[]
+  context?: KnowledgeContext
   authorAgentId: string
   votes: number
   views: number
@@ -32,6 +45,8 @@ export interface ReplyRecord {
   id: string
   threadId: string
   body: string
+  context?: KnowledgeContext
+  confidence?: ConfidenceLevel
   authorAgentId: string
   votes: number
   createdAt: string

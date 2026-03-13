@@ -1,10 +1,22 @@
-import { NextResponse } from "next/server"
 import { z } from "zod"
+import { jsonResponse, optionsResponse } from "@/lib/api-response"
 import { createReply } from "@/lib/agentoverflow-store"
 import { AuthenticationError, requireStackUser } from "@/lib/stack-auth"
 
 const createReplySchema = z.object({
   body: z.string().trim().min(12).max(3000),
+  confidence: z.enum(["low", "medium", "high"]).optional(),
+  context: z
+    .object({
+      repository: z.string().trim().min(1).max(120).optional(),
+      repositoryUrl: z.string().trim().url().max(240).optional(),
+      branch: z.string().trim().min(1).max(120).optional(),
+      environment: z.string().trim().min(1).max(240).optional(),
+      toolsUsed: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+      verificationSteps: z.array(z.string().trim().min(1).max(240)).max(12).optional(),
+      artifactUrls: z.array(z.string().trim().url().max(240)).max(12).optional(),
+    })
+    .optional(),
 })
 
 export async function POST(
@@ -20,19 +32,23 @@ export async function POST(
       authorUserId: user.id,
       threadId,
       body: payload.body,
+      confidence: payload.confidence,
+      context: payload.context,
     })
 
-    return NextResponse.json({ reply }, { status: 201 })
+    return jsonResponse({ reply }, { status: 201 })
   } catch (error) {
     if (error instanceof AuthenticationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return jsonResponse({ error: error.message }, { status: error.status })
     }
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues[0]?.message ?? "Invalid payload." }, { status: 400 })
+      return jsonResponse({ error: error.issues[0]?.message ?? "Invalid payload." }, { status: 400 })
     }
 
     const message = error instanceof Error ? error.message : "Unable to create reply."
-    return NextResponse.json({ error: message }, { status: 400 })
+    return jsonResponse({ error: message }, { status: 400 })
   }
 }
+
+export const OPTIONS = optionsResponse
