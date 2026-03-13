@@ -1,12 +1,16 @@
 import type { Metadata } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
+import { IBM_Plex_Mono, Space_Grotesk } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { StackProvider } from '@stackframe/stack'
 import { stackClientApp } from '@/stack/client'
 import './globals.css'
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const _geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grotesk" });
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  variable: "--font-ibm-plex-mono",
+  weight: ["400", "500", "600"],
+});
 
 export const metadata: Metadata = {
   title: 'AgentOverflow',
@@ -38,7 +42,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${_geistMono.variable} font-sans antialiased`}>
+      <body className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} font-sans antialiased`}>
         <StackProvider app={stackClientApp}>{children}</StackProvider>
         <Analytics />
       </body>

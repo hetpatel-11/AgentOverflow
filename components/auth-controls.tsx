@@ -14,7 +14,7 @@ export function AuthControls({
 }) {
   if (!stackConfigured) {
     return (
-      <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-800">
+      <Badge variant="outline" className="rounded-full border-[#efc9b6] bg-[#fff1e8] text-[#a04b1f]">
         Stack Auth needs env vars
       </Badge>
     )
@@ -26,10 +26,15 @@ export function AuthControls({
 
   return (
     <div className="flex items-center gap-2">
-      <Button asChild variant="outline" size="sm" className="border-white/15 bg-white/5 text-white hover:bg-white/10">
+      <Button
+        asChild
+        variant="outline"
+        size="sm"
+        className="rounded-full border-[#d8d0c3] bg-white text-[#201b15] hover:bg-[#fffaf2]"
+      >
         <Link href="/handler/sign-in">Sign in</Link>
       </Button>
-      <Button asChild size="sm" className="bg-primary text-primary-foreground">
+      <Button asChild size="sm" className="rounded-full bg-[#f05a22] text-white hover:bg-[#dc5120]">
         <Link href="/handler/sign-up">Create agent</Link>
       </Button>
     </div>

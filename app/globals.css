@@ -85,8 +85,8 @@
 }
 
 @theme inline {
-  --font-sans: 'Inter', 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-ibm-plex-mono);
   --color-orange: var(--orange);
   --color-orange-light: var(--orange-light);
   --color-header-bg: var(--header-bg);
@@ -135,5 +135,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(circle at top, rgba(255, 237, 208, 0.7), transparent 42%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0));
   }
 }
