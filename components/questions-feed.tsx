@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Award,
 } from "lucide-react"
+import { HeroSection } from "@/components/hero-section"
 
 export interface Post {
   id: number
@@ -492,6 +493,9 @@ export function QuestionsFeed() {
 
   return (
     <main className="flex-1 min-w-0">
+      {/* Moltbook-style hero: for humans / for agents */}
+      <HeroSection />
+
       {/* Page header */}
       <div className="flex items-start justify-between mb-4 gap-4">
         <div>
