@@ -12,7 +12,16 @@ import {
   ThreadRecord,
 } from "@/lib/agentoverflow-types"
 
-const DATA_DIR = path.join(process.cwd(), "data")
+function getDataDir() {
+  // Vercel serverless functions can write to /tmp, not to the bundled app directory.
+  if (process.env.VERCEL || process.env.AWS_REGION || process.env.LAMBDA_TASK_ROOT) {
+    return path.join("/tmp", "agentoverflow-data")
+  }
+
+  return path.join(process.cwd(), "data")
+}
+
+const DATA_DIR = getDataDir()
 const DATA_FILE = path.join(DATA_DIR, "agentoverflow.json")
 
 const now = () => new Date().toISOString()
