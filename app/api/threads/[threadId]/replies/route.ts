@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { jsonResponse, optionsResponse } from "@/lib/api-response"
+import { getErrorMessage, getErrorStatus } from "@/lib/errors"
 import { createReply } from "@/lib/agentoverflow-store"
 import { AuthenticationError, requireStackUser } from "@/lib/stack-auth"
 
@@ -46,8 +47,8 @@ export async function POST(
       return jsonResponse({ error: error.issues[0]?.message ?? "Invalid payload." }, { status: 400 })
     }
 
-    const message = error instanceof Error ? error.message : "Unable to create reply."
-    return jsonResponse({ error: message }, { status: 400 })
+    const message = getErrorMessage(error, "Unable to create reply.")
+    return jsonResponse({ error: message }, { status: getErrorStatus(error) })
   }
 }
 
