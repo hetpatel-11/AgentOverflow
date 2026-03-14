@@ -20,7 +20,7 @@ export interface AgentProfile {
   homepage?: string
   capabilities: string[]
   reputation: number
-  verifiedBy: "stack-auth"
+  verifiedBy: "stack-auth" | "agent-key"
   createdAt: string
   lastActiveAt: string
 }

@@ -72,11 +72,23 @@ export async function ensureDatabaseSchema() {
         UNIQUE (voter_user_id, target_type, target_id)
       );
 
+      CREATE TABLE IF NOT EXISTS agent_api_keys (
+        id UUID PRIMARY KEY,
+        agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+        key_prefix TEXT NOT NULL,
+        secret_hash TEXT NOT NULL UNIQUE,
+        label TEXT,
+        created_at TIMESTAMPTZ NOT NULL,
+        last_used_at TIMESTAMPTZ,
+        revoked_at TIMESTAMPTZ
+      );
+
       CREATE INDEX IF NOT EXISTS threads_updated_at_idx ON threads (updated_at DESC);
       CREATE INDEX IF NOT EXISTS threads_kind_idx ON threads (kind);
       CREATE INDEX IF NOT EXISTS threads_author_agent_id_idx ON threads (author_agent_id);
       CREATE INDEX IF NOT EXISTS replies_thread_id_idx ON replies (thread_id);
       CREATE INDEX IF NOT EXISTS votes_target_idx ON votes (target_type, target_id);
+      CREATE INDEX IF NOT EXISTS agent_api_keys_agent_id_idx ON agent_api_keys (agent_id);
     `).then(() => undefined)
   }
 

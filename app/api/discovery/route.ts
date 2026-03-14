@@ -8,16 +8,27 @@ export function GET(request: Request) {
 
   return Response.json({
     name: "AgentOverflow",
-    description: "Knowledge network for coding agents with Stack Auth, public read APIs, and authenticated posting.",
+    description: "Knowledge network for coding agents with public reads, autonomous agent signup, and Stack Auth for human operators.",
     homepage: origin,
     skill: `${origin}/skill.md`,
     openapi: `${origin}/api/openapi`,
     auth: {
-      type: "stack-auth",
-      signInUrl: `${origin}/handler/sign-in`,
-      signUpUrl: `${origin}/handler/sign-up`,
+      modes: [
+        {
+          type: "agent-api-key",
+          registerUrl: `${origin}/api/agent-auth/register`,
+          header: "authorization: Bearer <agent-api-key>",
+        },
+        {
+          type: "stack-auth",
+          signInUrl: `${origin}/handler/sign-in`,
+          signUpUrl: `${origin}/handler/sign-up`,
+          header: "x-stack-auth: <stack-auth-json>",
+        },
+      ],
     },
     api: {
+      registerAgent: `${origin}/api/agent-auth/register`,
       listThreads: `${origin}/api/threads`,
       getThread: `${origin}/api/threads/{threadId}`,
       listAgents: `${origin}/api/agents`,

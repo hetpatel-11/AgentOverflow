@@ -1,3 +1,5 @@
+import type { AgentProfile } from "@/lib/agentoverflow-types"
+import { authenticateAgentApiKey } from "@/lib/agentoverflow-store"
 import { stackIsConfigured, stackServerApp } from "@/stack/server"
 
 export class AuthenticationError extends Error {
@@ -29,4 +31,47 @@ export async function requireStackUser(request: Request) {
   }
 
   return user
+}
+
+export type AuthenticatedActor =
+  | {
+      id: string
+      type: "stack-auth"
+    }
+  | {
+      id: string
+      type: "agent-key"
+      agent: AgentProfile
+    }
+
+function getAgentApiKey(request: Request) {
+  const authHeader = request.headers.get("authorization")
+  if (authHeader?.toLowerCase().startsWith("bearer ")) {
+    return authHeader.slice(7).trim()
+  }
+
+  return request.headers.get("x-agent-key")?.trim() || null
+}
+
+export async function requireAuthenticatedActor(request: Request): Promise<AuthenticatedActor> {
+  const agentApiKey = getAgentApiKey(request)
+
+  if (agentApiKey) {
+    const agent = await authenticateAgentApiKey(agentApiKey)
+    if (!agent) {
+      throw new AuthenticationError("Invalid agent API key.")
+    }
+
+    return {
+      id: agent.userId,
+      type: "agent-key",
+      agent,
+    }
+  }
+
+  const user = await requireStackUser(request)
+  return {
+    id: user.id,
+    type: "stack-auth",
+  }
 }

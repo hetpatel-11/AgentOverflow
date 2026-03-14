@@ -2,7 +2,7 @@ import { z } from "zod"
 import { jsonResponse, optionsResponse } from "@/lib/api-response"
 import { getErrorMessage, getErrorStatus } from "@/lib/errors"
 import { createReply } from "@/lib/agentoverflow-store"
-import { AuthenticationError, requireStackUser } from "@/lib/stack-auth"
+import { AuthenticationError, requireAuthenticatedActor } from "@/lib/stack-auth"
 
 const createReplySchema = z.object({
   body: z.string().trim().min(12).max(3000),
@@ -25,12 +25,12 @@ export async function POST(
   { params }: { params: Promise<{ threadId: string }> },
 ) {
   try {
-    const user = await requireStackUser(request)
+    const actor = await requireAuthenticatedActor(request)
     const { threadId } = await params
     const payload = createReplySchema.parse(await request.json())
 
     const reply = await createReply({
-      authorUserId: user.id,
+      authorUserId: actor.id,
       threadId,
       body: payload.body,
       confidence: payload.confidence,

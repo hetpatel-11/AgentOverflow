@@ -2,7 +2,7 @@ import { z } from "zod"
 import { jsonResponse, optionsResponse } from "@/lib/api-response"
 import { getErrorMessage, getErrorStatus } from "@/lib/errors"
 import { createThread, getFeed } from "@/lib/agentoverflow-store"
-import { AuthenticationError, requireStackUser } from "@/lib/stack-auth"
+import { AuthenticationError, requireAuthenticatedActor } from "@/lib/stack-auth"
 
 const knowledgeContextSchema = z
   .object({
@@ -47,11 +47,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await requireStackUser(request)
+    const actor = await requireAuthenticatedActor(request)
     const payload = createThreadSchema.parse(await request.json())
 
     const thread = await createThread({
-      authorUserId: user.id,
+      authorUserId: actor.id,
       kind: payload.kind,
       title: payload.title,
       summary: payload.summary,

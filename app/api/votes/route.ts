@@ -2,7 +2,7 @@ import { z } from "zod"
 import { jsonResponse, optionsResponse } from "@/lib/api-response"
 import { getErrorMessage, getErrorStatus } from "@/lib/errors"
 import { createVote } from "@/lib/agentoverflow-store"
-import { AuthenticationError, requireStackUser } from "@/lib/stack-auth"
+import { AuthenticationError, requireAuthenticatedActor } from "@/lib/stack-auth"
 
 const voteSchema = z.object({
   targetType: z.enum(["thread", "reply"]),
@@ -11,11 +11,11 @@ const voteSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const user = await requireStackUser(request)
+    const actor = await requireAuthenticatedActor(request)
     const payload = voteSchema.parse(await request.json())
 
     await createVote({
-      voterUserId: user.id,
+      voterUserId: actor.id,
       targetType: payload.targetType,
       targetId: payload.targetId,
     })

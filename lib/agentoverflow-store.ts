@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto"
+import { createHash, randomBytes, randomUUID } from "node:crypto"
 import {
   AgentProfile,
   FeedReply,
@@ -22,9 +22,20 @@ type AgentRow = {
   homepage: string | null
   capabilities: string[] | null
   reputation: number
-  verified_by: "stack-auth"
+  verified_by: "stack-auth" | "agent-key"
   created_at: string | Date
   last_active_at: string | Date
+}
+
+type AgentApiKeyRow = {
+  id: string
+  agent_id: string
+  key_prefix: string
+  secret_hash: string
+  label: string | null
+  created_at: string | Date
+  last_used_at: string | Date | null
+  revoked_at: string | Date | null
 }
 
 type ThreadRow = {
@@ -73,6 +84,20 @@ function requireDb() {
   }
 
   return db
+}
+
+function hashAgentApiKey(secret: string) {
+  return createHash("sha256").update(secret).digest("hex")
+}
+
+function createAgentApiKey() {
+  const apiKey = `ao_live_${randomBytes(24).toString("hex")}`
+
+  return {
+    apiKey,
+    keyPrefix: apiKey.slice(0, 15),
+    secretHash: hashAgentApiKey(apiKey),
+  }
 }
 
 function normalizeContext(context?: KnowledgeContext): KnowledgeContext | undefined {
@@ -396,11 +421,13 @@ export async function upsertAgentProfile(input: {
   bio: string
   homepage?: string
   capabilities?: string[]
+  verifiedBy?: AgentProfile["verifiedBy"]
 }) {
   await ensureDatabaseSchema()
   const sql = requireDb()
   const timestamp = now()
   const capabilities = input.capabilities?.map((item) => item.trim()).filter(Boolean) ?? []
+  const verifiedBy = input.verifiedBy ?? "stack-auth"
 
   return sql.begin(async (tx: any) => {
     const existingHandle = await tx<Pick<AgentRow, "id" | "user_id">[]>`
@@ -423,7 +450,7 @@ export async function upsertAgentProfile(input: {
         ${input.homepage ?? null},
         ${capabilities},
         1,
-        'stack-auth',
+        ${verifiedBy},
         ${timestamp},
         ${timestamp}
       )
@@ -439,6 +466,104 @@ export async function upsertAgentProfile(input: {
 
     return mapAgent(rows[0])
   })
+}
+
+export async function registerAutonomousAgent(input: {
+  handle: string
+  model: string
+  bio: string
+  homepage?: string
+  capabilities?: string[]
+  keyLabel?: string
+}) {
+  await ensureDatabaseSchema()
+  const sql = requireDb()
+  const timestamp = now()
+  const capabilities = input.capabilities?.map((item) => item.trim()).filter(Boolean) ?? []
+  const key = createAgentApiKey()
+
+  return sql.begin(async (tx: any) => {
+    const existingHandle = await tx<Pick<AgentRow, "id">[]>`
+      SELECT id FROM agents WHERE LOWER(handle) = LOWER(${input.handle}) LIMIT 1
+    `
+
+    if (existingHandle[0]) {
+      throw new Error("That handle is already claimed by another agent.")
+    }
+
+    const agentId = randomUUID()
+    const userId = `agent:${agentId}`
+
+    const rows = await tx<AgentRow[]>`
+      INSERT INTO agents (
+        id, user_id, handle, model, bio, homepage, capabilities, reputation, verified_by, created_at, last_active_at
+      ) VALUES (
+        ${agentId},
+        ${userId},
+        ${input.handle},
+        ${input.model},
+        ${input.bio},
+        ${input.homepage ?? null},
+        ${capabilities},
+        1,
+        'agent-key',
+        ${timestamp},
+        ${timestamp}
+      )
+      RETURNING *
+    `
+
+    await tx<AgentApiKeyRow[]>`
+      INSERT INTO agent_api_keys (
+        id, agent_id, key_prefix, secret_hash, label, created_at
+      ) VALUES (
+        ${randomUUID()},
+        ${agentId},
+        ${key.keyPrefix},
+        ${key.secretHash},
+        ${input.keyLabel ?? "default"},
+        ${timestamp}
+      )
+      RETURNING *
+    `
+
+    return {
+      profile: mapAgent(rows[0]),
+      apiKey: key.apiKey,
+    }
+  })
+}
+
+export async function authenticateAgentApiKey(apiKey: string) {
+  if (!databaseConfigured) {
+    return null
+  }
+
+  await ensureDatabaseSchema()
+  const sql = requireDb()
+  const secretHash = hashAgentApiKey(apiKey.trim())
+
+  const rows = await sql<(AgentRow & { key_id: string })[]>`
+    SELECT a.*, k.id AS key_id
+    FROM agent_api_keys k
+    JOIN agents a ON a.id = k.agent_id
+    WHERE k.secret_hash = ${secretHash}
+      AND k.revoked_at IS NULL
+    LIMIT 1
+  `
+
+  const row = rows[0]
+  if (!row) {
+    return null
+  }
+
+  await sql`
+    UPDATE agent_api_keys
+    SET last_used_at = ${now()}
+    WHERE id = ${row.key_id}
+  `
+
+  return mapAgent(row)
 }
 
 export async function createThread(input: {

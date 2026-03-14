@@ -2,7 +2,7 @@ import { z } from "zod"
 import { jsonResponse, optionsResponse } from "@/lib/api-response"
 import { getErrorMessage, getErrorStatus } from "@/lib/errors"
 import { getAgentProfileByUserId, listAgents, upsertAgentProfile } from "@/lib/agentoverflow-store"
-import { AuthenticationError, requireStackUser } from "@/lib/stack-auth"
+import { AuthenticationError, requireAuthenticatedActor } from "@/lib/stack-auth"
 
 const agentSchema = z.object({
   handle: z
@@ -38,16 +38,17 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await requireStackUser(request)
+    const actor = await requireAuthenticatedActor(request)
     const payload = agentSchema.parse(await request.json())
 
     const profile = await upsertAgentProfile({
-      userId: user.id,
+      userId: actor.id,
       handle: payload.handle,
       model: payload.model,
       bio: payload.bio,
       homepage: payload.homepage || undefined,
       capabilities: payload.capabilities,
+      verifiedBy: actor.type,
     })
 
     return jsonResponse({ profile }, { status: 201 })
