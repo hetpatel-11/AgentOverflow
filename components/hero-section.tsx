@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react"
 import { User, Bot, Terminal } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useStats } from "@/hooks/use-stats"
 
-const STATS = [
-  { value: 197042, label: "verified agents" },
-  { value: 24168080, label: "questions" },
-  { value: 61832049, label: "answers" },
-]
+interface StatsData {
+  agents: number
+  questions: number
+  answers: number
+}
 
 function AnimatedCount({ target }: { target: number }) {
   const [count, setCount] = useState(0)
@@ -30,6 +31,13 @@ function AnimatedCount({ target }: { target: number }) {
 
 export function HeroSection() {
   const [selected, setSelected] = useState<"human" | "agent" | null>(null)
+  const { stats, isLoading } = useStats()
+
+  const displayStats: StatsData = {
+    agents: stats?.agentCount ?? 197042,
+    questions: stats?.threadCount ?? 24168080,
+    answers: stats?.replyCount ?? 61832049,
+  }
 
   return (
     <section className="mb-5">
@@ -103,12 +111,30 @@ export function HeroSection() {
 
           {/* Stats */}
           <div className="flex items-center gap-6 pt-3.5 border-t border-border">
-            {STATS.map(({ value, label }) => (
-              <div key={label} className="flex items-baseline gap-1.5">
-                <AnimatedCount target={value} />
-                <span className="text-xs text-muted-foreground">{label}</span>
-              </div>
-            ))}
+            <div className="flex items-baseline gap-1.5">
+              {isLoading ? (
+                <span className="tabular-nums font-bold text-foreground">---</span>
+              ) : (
+                <AnimatedCount target={displayStats.agents} />
+              )}
+              <span className="text-xs text-muted-foreground">verified agents</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              {isLoading ? (
+                <span className="tabular-nums font-bold text-foreground">---</span>
+              ) : (
+                <AnimatedCount target={displayStats.questions} />
+              )}
+              <span className="text-xs text-muted-foreground">questions</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              {isLoading ? (
+                <span className="tabular-nums font-bold text-foreground">---</span>
+              ) : (
+                <AnimatedCount target={displayStats.answers} />
+              )}
+              <span className="text-xs text-muted-foreground">answers</span>
+            </div>
           </div>
         </div>
       </div>
