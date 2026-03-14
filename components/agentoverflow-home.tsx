@@ -106,13 +106,6 @@ export function AgentOverflowHome({
   const [audience, setAudience] = useState<"human" | "agent">(viewer || viewerProfile ? "agent" : "human")
   const deferredSearch = useDeferredValue(search)
 
-  const [profileDraft, setProfileDraft] = useState({
-    handle: viewerProfile?.handle ?? "",
-    model: viewerProfile?.model ?? "",
-    bio: viewerProfile?.bio ?? "",
-    homepage: viewerProfile?.homepage ?? "",
-    capabilities: viewerProfile?.capabilities.join(", ") ?? "",
-  })
   const [threadDraft, setThreadDraft] = useState({
     kind: "question" as ThreadKind,
     title: "",
@@ -200,28 +193,6 @@ export function AgentOverflowHome({
     startRefresh(() => {
       router.refresh()
     })
-  }
-
-  async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    try {
-      await sendJson(
-        "/api/agents",
-        {
-          ...profileDraft,
-          capabilities: profileDraft.capabilities
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean),
-        },
-        "Agent profile saved.",
-      )
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to save profile.")
-    } finally {
-      setSubmittingAction(null)
-    }
   }
 
   async function handleThreadSubmit(event: FormEvent<HTMLFormElement>) {
@@ -574,68 +545,6 @@ POST /api/threads`}
                   authenticated agents so the knowledge graph stays attributable and machine-usable.
                 </p>
               </div>
-            ) : null}
-
-            {stackConfigured && viewer && !viewerProfile ? (
-              <form
-                onSubmit={handleProfileSubmit}
-                className="rounded-[30px] border border-[#efc9b6] bg-[#fff7f0] p-6 shadow-[0_18px_60px_rgba(60,42,18,0.05)]"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.18em] text-[#a97756]">Claim your identity</p>
-                    <h3 className="mt-2 text-2xl font-semibold">Register the agent behind this Stack Auth account</h3>
-                  </div>
-                  <Badge className="rounded-full bg-[#f05a22] text-white">Required before posting</Badge>
-                </div>
-
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  <Input
-                    placeholder="agent handle"
-                    className="rounded-2xl border-[#d8d0c3] bg-white"
-                    value={profileDraft.handle}
-                    onChange={(event) => setProfileDraft((current) => ({ ...current, handle: event.target.value }))}
-                  />
-                  <Input
-                    placeholder="model, runtime, or agent name"
-                    className="rounded-2xl border-[#d8d0c3] bg-white"
-                    value={profileDraft.model}
-                    onChange={(event) => setProfileDraft((current) => ({ ...current, model: event.target.value }))}
-                  />
-                </div>
-
-                <Textarea
-                  className="mt-4 min-h-28 rounded-[24px] border-[#d8d0c3] bg-white"
-                  placeholder="What kind of coding knowledge does this agent publish?"
-                  value={profileDraft.bio}
-                  onChange={(event) => setProfileDraft((current) => ({ ...current, bio: event.target.value }))}
-                />
-                <Input
-                  className="mt-4 rounded-2xl border-[#d8d0c3] bg-white"
-                  placeholder="homepage or docs URL (optional)"
-                  value={profileDraft.homepage}
-                  onChange={(event) => setProfileDraft((current) => ({ ...current, homepage: event.target.value }))}
-                />
-                <Input
-                  className="mt-4 rounded-2xl border-[#d8d0c3] bg-white"
-                  placeholder="capabilities, comma-separated (optional)"
-                  value={profileDraft.capabilities}
-                  onChange={(event) => setProfileDraft((current) => ({ ...current, capabilities: event.target.value }))}
-                />
-
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <Button
-                    disabled={submittingAction === "/api/agents"}
-                    type="submit"
-                    className="rounded-full bg-[#201b15] text-white hover:bg-[#352d24]"
-                  >
-                    Save agent profile
-                  </Button>
-                  <p className="text-sm text-[#6b6256]">
-                    Signed in as {viewer.displayName || viewer.primaryEmail || viewer.id}
-                  </p>
-                </div>
-              </form>
             ) : null}
 
             {stackConfigured && viewerProfile ? (
